@@ -145,14 +145,13 @@ const addMovie = async (req: RequestWithUser, res: Response) => {
     }
 
     const movie = await Movies.findOne({ _id: id });
+    console.log(movie);
 
     if (!movie) {
       res.status(400).send({ error: "Movie not found" });
       return;
     }
-    // const index = await user.watchlist.findIndex((watchlist) => {
-    //   return watchlist.name === name;
-    // });
+
     if (watchlist.movies.includes(id)) {
       return res.status(401).send({ error: "Movie Already Exists" });
     }
@@ -190,21 +189,30 @@ const getMoviesWithUser = async (req: RequestWithUser, res: Response) => {
     const userEmail = req.email;
     const user = await User.findOne({ email: userEmail });
 
-    if (user) {
-      const watchlistMovieIds = user.watchlist
-        .flatMap((watchlist) => watchlist.movies)
-        .filter((movieId) => movieId === id);
-
-      const moviesDetails = await Movies.find({
-        _id: { $in: watchlistMovieIds },
-      });
-
-      console.log(moviesDetails);
-      res.status(200).json(moviesDetails);
-    } else {
+    if (!user) {
       console.log("User not found");
-      res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: "User not found" });
     }
+
+    const movieExistsInWatchlist = user.watchlist.some((watchlist) =>
+      watchlist.movies.includes(id)
+    );
+
+    if (!movieExistsInWatchlist) {
+      console.log("Movie not found in watchlist");
+      return res.status(401).json({ error: "Movie Not Found" });
+    }
+
+    const watchlistMovieIds = user.watchlist
+      .flatMap((watchlist) => watchlist.movies)
+      .filter((movieId) => movieId === id);
+
+    const moviesDetails = await Movies.find({
+      _id: { $in: watchlistMovieIds },
+    });
+
+    console.log(moviesDetails);
+    res.status(200).json(moviesDetails);
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: "Internal Server Error" });
